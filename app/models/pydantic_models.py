@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr, field_validator, ConfigDict
+from pydantic_core import core_schema
 from bson import ObjectId
 from typing import Optional, List, Dict, Any, Annotated
 from datetime import datetime, date
@@ -6,20 +7,38 @@ from enum import Enum
 import re
 
 class PyObjectId(ObjectId):
-    """Classe para lidar com ObjectId do MongoDB no Pydantic"""
+    """
+    Custom Pydantic type for MongoDB's ObjectId.
+    """
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
-        return {
-            'type': 'string',
-            'validator': cls.validate,
-            'serializer': lambda x: str(x)
-        }
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: Any
+    ) -> core_schema.CoreSchema:
+        """
+        Return a Pydantic CoreSchema for ObjectId.
+        """
+        def validate_from_str(v: str) -> ObjectId:
+            if not ObjectId.is_valid(v):
+                 raise ValueError("Invalid ObjectId")
+            return ObjectId(v)
 
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
+        return core_schema.json_or_python_schema(
+            json_schema=core_schema.str_schema(),
+            python_schema=core_schema.union_schema(
+                [
+                    # check if it's an instance of ObjectId
+                    core_schema.is_instance_schema(ObjectId),
+                    # if not, try to validate it from a string
+                    core_schema.chain_schema(
+                        [
+                            core_schema.str_schema(),
+                            core_schema.no_info_plain_validator_function(validate_from_str),
+                        ]
+                    ),
+                ]
+            ),
+            serialization=core_schema.plain_serializer_function_ser_schema(lambda x: str(x)),
+        )
 
 # Enums para status e tipos
 class StatusVeiculo(str, Enum):
