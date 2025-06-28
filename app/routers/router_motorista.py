@@ -32,43 +32,6 @@ async def listar_motoristas(
     """Listar todos os motoristas"""
     return await crud.get_motoristas()
 
-# F3: CRUD completo - GET por ID
-@router.get("/{motorista_id}", response_model=Motorista)
-async def obter_motorista(
-    motorista_id: str,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Obter um motorista específico por ID"""
-    motorista = await crud.get_motorista(motorista_id)
-    if not motorista:
-        raise HTTPException(status_code=404, detail="Motorista não encontrado")
-    return motorista
-
-# F3: CRUD completo - PUT (atualizar)
-@router.put("/{motorista_id}", response_model=Motorista)
-async def atualizar_motorista(
-    motorista_id: str,
-    motorista_update: MotoristaUpdate,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Atualizar um motorista"""
-    motorista = await crud.update_motorista(motorista_id, motorista_update)
-    if not motorista:
-        raise HTTPException(status_code=404, detail="Motorista não encontrado")
-    return motorista
-
-# F3: CRUD completo - DELETE
-@router.delete("/{motorista_id}")
-async def deletar_motorista(
-    motorista_id: str,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Deletar um motorista"""
-    success = await crud.delete_motorista(motorista_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Motorista não encontrado")
-    return {"message": "Motorista deletado com sucesso"}
-
 # F4: Mostrar quantidade de entidades
 @router.get("/quantidade/total")
 async def contar_motoristas(
@@ -132,4 +95,41 @@ async def listar_motoristas_inativos(
     crud: CRUDService = Depends(get_crud_service)
 ):
     """Listar apenas motoristas inativos"""
-    return await crud.search_motoristas(status_ativo=False) 
+    return await crud.search_motoristas(status_ativo=False)
+
+# F3: CRUD completo - GET por ID (DEVE VIR DEPOIS DAS ROTAS ESPECÍFICAS)
+@router.get("/{motorista_id}", response_model=Motorista)
+async def obter_motorista(
+    motorista_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Obter um motorista específico por ID"""
+    motorista = await crud.get_motorista(motorista_id)
+    if not motorista:
+        raise HTTPException(status_code=404, detail="Motorista não encontrado")
+    return motorista
+
+# F3: CRUD completo - PUT (atualizar)
+@router.put("/{motorista_id}", response_model=Motorista)
+async def atualizar_motorista(
+    motorista_id: str,
+    motorista_update: MotoristaUpdate,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Atualizar um motorista"""
+    motorista = await crud.update_motorista(motorista_id, motorista_update)
+    if not motorista:
+        raise HTTPException(status_code=404, detail="Motorista não encontrado")
+    return motorista
+
+# F3: CRUD completo - DELETE
+@router.delete("/{motorista_id}")
+async def deletar_motorista(
+    motorista_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Deletar um motorista"""
+    success = await crud.delete_motorista(motorista_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Motorista não encontrado")
+    return {"message": "Motorista deletado com sucesso"} 

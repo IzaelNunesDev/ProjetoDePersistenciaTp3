@@ -33,43 +33,6 @@ async def listar_veiculos(
     """Listar todos os veículos"""
     return await crud.get_veiculos()
 
-# F3: CRUD completo - GET por ID
-@router.get("/{veiculo_id}", response_model=Veiculo)
-async def obter_veiculo(
-    veiculo_id: str,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Obter um veículo específico por ID"""
-    veiculo = await crud.get_veiculo(veiculo_id)
-    if not veiculo:
-        raise HTTPException(status_code=404, detail="Veículo não encontrado")
-    return veiculo
-
-# F3: CRUD completo - PUT (atualizar)
-@router.put("/{veiculo_id}", response_model=Veiculo)
-async def atualizar_veiculo(
-    veiculo_id: str,
-    veiculo_update: VeiculoUpdate,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Atualizar um veículo"""
-    veiculo = await crud.update_veiculo(veiculo_id, veiculo_update)
-    if not veiculo:
-        raise HTTPException(status_code=404, detail="Veículo não encontrado")
-    return veiculo
-
-# F3: CRUD completo - DELETE
-@router.delete("/{veiculo_id}")
-async def deletar_veiculo(
-    veiculo_id: str,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Deletar um veículo"""
-    success = await crud.delete_veiculo(veiculo_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Veículo não encontrado")
-    return {"message": "Veículo deletado com sucesso"}
-
 # F4: Mostrar quantidade de entidades
 @router.get("/quantidade/total")
 async def contar_veiculos(
@@ -147,4 +110,41 @@ async def listar_veiculos_adaptados_pcd(
     crud: CRUDService = Depends(get_crud_service)
 ):
     """Listar veículos adaptados para PCD"""
-    return await crud.search_veiculos(adaptado_pcd=True) 
+    return await crud.search_veiculos(adaptado_pcd=True)
+
+# F3: CRUD completo - GET por ID (DEVE VIR DEPOIS DAS ROTAS ESPECÍFICAS)
+@router.get("/{veiculo_id}", response_model=Veiculo)
+async def obter_veiculo(
+    veiculo_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Obter um veículo específico por ID"""
+    veiculo = await crud.get_veiculo(veiculo_id)
+    if not veiculo:
+        raise HTTPException(status_code=404, detail="Veículo não encontrado")
+    return veiculo
+
+# F3: CRUD completo - PUT (atualizar)
+@router.put("/{veiculo_id}", response_model=Veiculo)
+async def atualizar_veiculo(
+    veiculo_id: str,
+    veiculo_update: VeiculoUpdate,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Atualizar um veículo"""
+    veiculo = await crud.update_veiculo(veiculo_id, veiculo_update)
+    if not veiculo:
+        raise HTTPException(status_code=404, detail="Veículo não encontrado")
+    return veiculo
+
+# F3: CRUD completo - DELETE
+@router.delete("/{veiculo_id}")
+async def deletar_veiculo(
+    veiculo_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Deletar um veículo"""
+    success = await crud.delete_veiculo(veiculo_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Veículo não encontrado")
+    return {"message": "Veículo deletado com sucesso"} 

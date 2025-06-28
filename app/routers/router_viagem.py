@@ -34,43 +34,6 @@ async def listar_viagens(
     """Listar todas as viagens"""
     return await crud.get_viagens()
 
-# F3: CRUD completo - GET por ID
-@router.get("/{viagem_id}", response_model=Viagem)
-async def obter_viagem(
-    viagem_id: str,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Obter uma viagem específica por ID"""
-    viagem = await crud.get_viagem(viagem_id)
-    if not viagem:
-        raise HTTPException(status_code=404, detail="Viagem não encontrada")
-    return viagem
-
-# F3: CRUD completo - PUT (atualizar)
-@router.put("/{viagem_id}", response_model=Viagem)
-async def atualizar_viagem(
-    viagem_id: str,
-    viagem_update: ViagemUpdate,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Atualizar uma viagem"""
-    viagem = await crud.update_viagem(viagem_id, viagem_update)
-    if not viagem:
-        raise HTTPException(status_code=404, detail="Viagem não encontrada")
-    return viagem
-
-# F3: CRUD completo - DELETE
-@router.delete("/{viagem_id}")
-async def deletar_viagem(
-    viagem_id: str,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Deletar uma viagem"""
-    success = await crud.delete_viagem(viagem_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Viagem não encontrada")
-    return {"message": "Viagem deletada com sucesso"}
-
 # F4: Mostrar quantidade de entidades
 @router.get("/quantidade/total")
 async def contar_viagens(
@@ -108,28 +71,6 @@ async def buscar_viagens(
         motorista_id=motorista_id,
         rota_id=rota_id
     )
-
-# F7: Consulta complexa 1 - Detalhes completos de uma viagem
-@router.get("/{viagem_id}/detalhes", response_model=ViagemDetalhada)
-async def obter_viagem_detalhada(
-    viagem_id: str,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Obter detalhes completos de uma viagem com dados do motorista, veículo e rota"""
-    viagem_detalhada = await crud.get_viagem_detalhada(viagem_id)
-    if not viagem_detalhada:
-        raise HTTPException(status_code=404, detail="Viagem não encontrada")
-    return viagem_detalhada
-
-# F7: Consulta complexa 2 - Listar todos os alunos de uma viagem específica
-@router.get("/{viagem_id}/alunos", response_model=List[Aluno])
-async def obter_alunos_viagem(
-    viagem_id: str,
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Listar todos os alunos que embarcaram em uma viagem específica"""
-    alunos = await crud.get_alunos_viagem(viagem_id)
-    return alunos
 
 # F7: Consulta complexa 3 - Viagens por período com estatísticas
 @router.get("/estatisticas/periodo/")
@@ -190,4 +131,63 @@ async def listar_viagens_por_aluno(
         raise HTTPException(
             status_code=503, 
             detail=f"Serviço temporariamente indisponível: {str(e)}"
-        ) 
+        )
+
+# F3: CRUD completo - GET por ID (DEVE VIR DEPOIS DAS ROTAS ESPECÍFICAS)
+@router.get("/{viagem_id}", response_model=Viagem)
+async def obter_viagem(
+    viagem_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Obter uma viagem específica por ID"""
+    viagem = await crud.get_viagem(viagem_id)
+    if not viagem:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    return viagem
+
+# F3: CRUD completo - PUT (atualizar)
+@router.put("/{viagem_id}", response_model=Viagem)
+async def atualizar_viagem(
+    viagem_id: str,
+    viagem_update: ViagemUpdate,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Atualizar uma viagem"""
+    viagem = await crud.update_viagem(viagem_id, viagem_update)
+    if not viagem:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    return viagem
+
+# F3: CRUD completo - DELETE
+@router.delete("/{viagem_id}")
+async def deletar_viagem(
+    viagem_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Deletar uma viagem"""
+    success = await crud.delete_viagem(viagem_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    return {"message": "Viagem deletada com sucesso"}
+
+# F7: Consulta complexa 1 - Detalhes completos de uma viagem
+@router.get("/{viagem_id}/detalhes", response_model=ViagemDetalhada)
+async def obter_viagem_detalhada(
+    viagem_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Obter detalhes completos de uma viagem com dados do motorista, veículo e rota"""
+    viagem_detalhada = await crud.get_viagem_detalhada(viagem_id)
+    if not viagem_detalhada:
+        raise HTTPException(status_code=404, detail="Viagem não encontrada")
+    return viagem_detalhada
+
+# F7: Consulta complexa 2 - Listar todos os alunos de uma viagem específica
+@router.get("/{viagem_id}/alunos", response_model=List[Aluno])
+async def obter_alunos_viagem(
+    viagem_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Listar todos os alunos que embarcaram em uma viagem específica"""
+    alunos = await crud.get_alunos_viagem(viagem_id)
+    return alunos 

@@ -32,6 +32,20 @@ async def listar_rotas(
     """Listar todas as rotas"""
     return await crud.get_rotas()
 
+# Endpoint adicional: Rotas ativas (DEVE VIR ANTES DE /{rota_id})
+@router.get("/ativas", response_model=List[Rota])
+async def listar_rotas_ativas(
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Listar apenas rotas ativas"""
+    try:
+        return await crud.search_rotas(ativa=True)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Serviço temporariamente indisponível: {str(e)}"
+        )
+
 # F3: CRUD completo - GET por ID
 @router.get("/{rota_id}", response_model=Rota)
 async def obter_rota(
@@ -124,20 +138,6 @@ async def buscar_rotas_por_texto(
     cursor = db.rotas.find(filter_query)
     rotas = await cursor.to_list(length=100)
     return [Rota(**rota) for rota in rotas]
-
-# Endpoint adicional: Rotas ativas
-@router.get("/ativas/", response_model=List[Rota])
-async def listar_rotas_ativas(
-    crud: CRUDService = Depends(get_crud_service)
-):
-    """Listar apenas rotas ativas"""
-    try:
-        return await crud.search_rotas(ativa=True)
-    except Exception as e:
-        raise HTTPException(
-            status_code=503, 
-            detail=f"Serviço temporariamente indisponível: {str(e)}"
-        )
 
 # Endpoint adicional: Rotas por turno
 @router.get("/turno/{turno}", response_model=List[Rota])
