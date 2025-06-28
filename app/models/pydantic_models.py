@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field, EmailStr, field_validator, ConfigDict
 from bson import ObjectId
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Annotated
 from datetime import datetime, date
 from enum import Enum
 import re
@@ -8,18 +8,18 @@ import re
 class PyObjectId(ObjectId):
     """Classe para lidar com ObjectId do MongoDB no Pydantic"""
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        return {
+            'type': 'string',
+            'validator': cls.validate,
+            'serializer': lambda x: str(x)
+        }
 
     @classmethod
     def validate(cls, v):
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectId")
         return ObjectId(v)
-
-    @classmethod
-    def __get_pydantic_json_schema__(cls, field_schema):
-        field_schema.update(type="string")
 
 # Enums para status e tipos
 class StatusVeiculo(str, Enum):
@@ -46,11 +46,12 @@ class TipoRegistro(str, Enum):
 # Modelos Base
 class BaseDocument(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-
-    class Config:
-        populate_by_name = True
-        json_encoders = {ObjectId: str}
-        arbitrary_types_allowed = True
+    
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
 
 # Modelos para Alunos (Usuario + Aluno embutidos)
 class AlunoCreate(BaseModel):
@@ -62,7 +63,8 @@ class AlunoCreate(BaseModel):
     necessidade_especial: Optional[str] = Field(None, max_length=200)
     ponto_embarque_preferencial_id: Optional[PyObjectId] = None
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v):
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(pattern, v):
@@ -78,7 +80,8 @@ class AlunoUpdate(BaseModel):
     necessidade_especial: Optional[str] = Field(None, max_length=200)
     ponto_embarque_preferencial_id: Optional[PyObjectId] = None
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v):
         if v is not None:
             pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -104,7 +107,8 @@ class MotoristaCreate(BaseModel):
     data_admissao: date
     status_ativo: bool = True
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v):
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(pattern, v):
@@ -119,7 +123,8 @@ class MotoristaUpdate(BaseModel):
     data_admissao: Optional[date] = None
     status_ativo: Optional[bool] = None
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v):
         if v is not None:
             pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -176,7 +181,8 @@ class RotaCreate(BaseModel):
     ativa: bool = True
     pontos_de_parada: List[PontoDeParada]
 
-    @validator('pontos_de_parada')
+    @field_validator('pontos_de_parada')
+    @classmethod
     def validate_pontos_de_parada(cls, v):
         if len(v) < 2:
             raise ValueError('Uma rota deve ter pelo menos 2 pontos de parada')
@@ -189,7 +195,8 @@ class RotaUpdate(BaseModel):
     ativa: Optional[bool] = None
     pontos_de_parada: Optional[List[PontoDeParada]] = None
 
-    @validator('pontos_de_parada')
+    @field_validator('pontos_de_parada')
+    @classmethod
     def validate_pontos_de_parada(cls, v):
         if v is not None and len(v) < 2:
             raise ValueError('Uma rota deve ter pelo menos 2 pontos de parada')
@@ -233,7 +240,7 @@ class Viagem(BaseDocument):
     veiculo_id: PyObjectId
     incidentes: List[Incidente] = []
 
-# Modelos para Frequências (Linking Collection)
+# Modelos para Frequência
 class FrequenciaCreate(BaseModel):
     aluno_id: PyObjectId
     viagem_id: PyObjectId
@@ -252,7 +259,7 @@ class Frequencia(BaseDocument):
     data_hora_embarque: datetime
     tipo_registro: TipoRegistro
 
-# Modelos para respostas de consultas complexas
+# Modelo para Viagem Detalhada (com informações relacionadas)
 class ViagemDetalhada(BaseModel):
     id: PyObjectId = Field(alias="_id")
     data_viagem: date
@@ -262,11 +269,12 @@ class ViagemDetalhada(BaseModel):
     veiculo_info: Veiculo
     incidentes: List[Incidente] = []
 
-    class Config:
-        populate_by_name = True
-        json_encoders = {ObjectId: str}
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_encoders={ObjectId: str}
+    )
 
-# Modelos para paginação
+# Modelos para Paginação
 class PaginatedResponse(BaseModel):
     items: List[Any]
     total: int
@@ -274,7 +282,7 @@ class PaginatedResponse(BaseModel):
     limit: int
     pages: int
 
-# Modelos para filtros
+# Modelos para Filtros
 class FiltroVeiculo(BaseModel):
     status_manutencao: Optional[StatusVeiculo] = None
     adaptado_pcd: Optional[bool] = None
@@ -292,7 +300,8 @@ class LoginRequest(BaseModel):
     email: str = Field(..., max_length=100)
     senha: str = Field(..., min_length=1)
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v):
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(pattern, v):

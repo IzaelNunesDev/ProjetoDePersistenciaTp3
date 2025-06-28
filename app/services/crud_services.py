@@ -26,7 +26,7 @@ class CRUDService:
     # ==================== ALUNOS ====================
     async def create_aluno(self, aluno: AlunoCreate) -> Aluno:
         """F1: Inserir um aluno"""
-        aluno_dict = aluno.dict()
+        aluno_dict = aluno.model_dump()
         aluno_dict["senha_hash"] = self._hash_password(aluno_dict.pop("senha"))
         aluno_dict["_id"] = ObjectId()
         
@@ -47,7 +47,7 @@ class CRUDService:
     async def update_aluno(self, aluno_id: str, aluno_update: AlunoUpdate) -> Optional[Aluno]:
         """F3: Atualizar aluno"""
         update_data = {}
-        for field, value in aluno_update.dict(exclude_unset=True).items():
+        for field, value in aluno_update.model_dump(exclude_unset=True).items():
             if field == "senha" and value:
                 update_data["senha_hash"] = self._hash_password(value)
             else:
@@ -85,7 +85,7 @@ class CRUDService:
     # ==================== MOTORISTAS ====================
     async def create_motorista(self, motorista: MotoristaCreate) -> Motorista:
         """F1: Inserir um motorista"""
-        motorista_dict = motorista.dict()
+        motorista_dict = motorista.model_dump()
         motorista_dict["senha_hash"] = self._hash_password(motorista_dict.pop("senha"))
         motorista_dict["_id"] = ObjectId()
         
@@ -106,7 +106,7 @@ class CRUDService:
     async def update_motorista(self, motorista_id: str, motorista_update: MotoristaUpdate) -> Optional[Motorista]:
         """F3: Atualizar motorista"""
         update_data = {}
-        for field, value in motorista_update.dict(exclude_unset=True).items():
+        for field, value in motorista_update.model_dump(exclude_unset=True).items():
             if field == "senha" and value:
                 update_data["senha_hash"] = self._hash_password(value)
             else:
@@ -144,7 +144,7 @@ class CRUDService:
     # ==================== VEÍCULOS ====================
     async def create_veiculo(self, veiculo: VeiculoCreate) -> Veiculo:
         """F1: Inserir um veículo"""
-        veiculo_dict = veiculo.dict()
+        veiculo_dict = veiculo.model_dump()
         veiculo_dict["_id"] = ObjectId()
         
         await self.db.veiculos.insert_one(veiculo_dict)
@@ -163,7 +163,7 @@ class CRUDService:
 
     async def update_veiculo(self, veiculo_id: str, veiculo_update: VeiculoUpdate) -> Optional[Veiculo]:
         """F3: Atualizar veículo"""
-        update_data = {k: v for k, v in veiculo_update.dict(exclude_unset=True).items()}
+        update_data = {k: v for k, v in veiculo_update.model_dump(exclude_unset=True).items()}
         
         if update_data:
             result = await self.db.veiculos.update_one(
@@ -202,7 +202,7 @@ class CRUDService:
     # ==================== ROTAS ====================
     async def create_rota(self, rota: RotaCreate) -> Rota:
         """F1: Inserir uma rota"""
-        rota_dict = rota.dict()
+        rota_dict = rota.model_dump()
         rota_dict["_id"] = ObjectId()
         
         await self.db.rotas.insert_one(rota_dict)
@@ -221,7 +221,7 @@ class CRUDService:
 
     async def update_rota(self, rota_id: str, rota_update: RotaUpdate) -> Optional[Rota]:
         """F3: Atualizar rota"""
-        update_data = {k: v for k, v in rota_update.dict(exclude_unset=True).items()}
+        update_data = {k: v for k, v in rota_update.model_dump(exclude_unset=True).items()}
         
         if update_data:
             result = await self.db.rotas.update_one(
@@ -263,7 +263,7 @@ class CRUDService:
     # ==================== VIAGENS ====================
     async def create_viagem(self, viagem: ViagemCreate) -> Viagem:
         """F1: Inserir uma viagem"""
-        viagem_dict = viagem.dict()
+        viagem_dict = viagem.model_dump()
         viagem_dict["_id"] = ObjectId()
         
         await self.db.viagens.insert_one(viagem_dict)
@@ -282,7 +282,7 @@ class CRUDService:
 
     async def update_viagem(self, viagem_id: str, viagem_update: ViagemUpdate) -> Optional[Viagem]:
         """F3: Atualizar viagem"""
-        update_data = {k: v for k, v in viagem_update.dict(exclude_unset=True).items()}
+        update_data = {k: v for k, v in viagem_update.model_dump(exclude_unset=True).items()}
         
         if update_data:
             result = await self.db.viagens.update_one(
@@ -327,11 +327,16 @@ class CRUDService:
         viagens = await cursor.to_list(length=100)
         return [Viagem(**viagem) for viagem in viagens]
 
-    # ==================== CONSULTAS COMPLEXAS (F7) ====================
     async def get_viagem_detalhada(self, viagem_id: str) -> Optional[ViagemDetalhada]:
-        """F7: Consulta complexa - Detalhes completos de uma viagem"""
+        """F7: Buscar viagem com informações relacionadas"""
         pipeline = [
             {"$match": {"_id": ObjectId(viagem_id)}},
+            {"$lookup": {
+                "from": "rotas",
+                "localField": "rota_id",
+                "foreignField": "_id",
+                "as": "rota_info"
+            }},
             {"$lookup": {
                 "from": "motoristas",
                 "localField": "motorista_id",
@@ -344,117 +349,127 @@ class CRUDService:
                 "foreignField": "_id",
                 "as": "veiculo_info"
             }},
-            {"$lookup": {
-                "from": "rotas",
-                "localField": "rota_id",
-                "foreignField": "_id",
-                "as": "rota_info"
-            }},
+            {"$unwind": "$rota_info"},
             {"$unwind": "$motorista_info"},
             {"$unwind": "$veiculo_info"},
-            {"$unwind": "$rota_info"}
+            {"$project": {
+                "_id": 1,
+                "data_viagem": 1,
+                "status": 1,
+                "incidentes": 1,
+                "rota_info": 1,
+                "motorista_info": 1,
+                "veiculo_info": 1
+            }}
         ]
         
-        cursor = self.db.viagens.aggregate(pipeline)
-        result = await cursor.to_list(length=1)
-        
+        result = await self.db.viagens.aggregate(pipeline).to_list(length=1)
         if result:
             return ViagemDetalhada(**result[0])
         return None
 
     async def get_alunos_viagem(self, viagem_id: str) -> List[Aluno]:
-        """F7: Consulta complexa - Listar todos os alunos de uma viagem específica"""
+        """F8: Buscar alunos de uma viagem específica"""
         pipeline = [
             {"$match": {"viagem_id": ObjectId(viagem_id)}},
             {"$lookup": {
                 "from": "alunos",
                 "localField": "aluno_id",
                 "foreignField": "_id",
-                "as": "aluno_details"
+                "as": "aluno_info"
             }},
-            {"$unwind": "$aluno_details"},
-            {"$replaceRoot": {"newRoot": "$aluno_details"}}
+            {"$unwind": "$aluno_info"},
+            {"$replaceRoot": {"newRoot": "$aluno_info"}}
         ]
         
-        cursor = self.db.frequencias.aggregate(pipeline)
-        alunos = await cursor.to_list(length=100)
+        alunos = await self.db.frequencias.aggregate(pipeline).to_list(length=100)
         return [Aluno(**aluno) for aluno in alunos]
 
     async def get_viagens_por_periodo(self, data_inicio: date, data_fim: date) -> List[Dict[str, Any]]:
-        """F7: Consulta complexa - Viagens por período com estatísticas"""
+        """F9: Relatório de viagens por período"""
         pipeline = [
             {"$match": {
                 "data_viagem": {"$gte": data_inicio, "$lte": data_fim}
             }},
             {"$lookup": {
-                "from": "motoristas",
-                "localField": "motorista_id",
-                "foreignField": "_id",
-                "as": "motorista"
-            }},
-            {"$lookup": {
                 "from": "rotas",
                 "localField": "rota_id",
                 "foreignField": "_id",
-                "as": "rota"
+                "as": "rota_info"
             }},
-            {"$unwind": "$motorista"},
-            {"$unwind": "$rota"},
-            {"$group": {
-                "_id": "$status",
-                "count": {"$sum": 1},
-                "viagens": {"$push": {
-                    "_id": "$_id",
-                    "data_viagem": "$data_viagem",
-                    "motorista": "$motorista.nome_completo",
-                    "rota": "$rota.nome_rota"
-                }}
+            {"$lookup": {
+                "from": "motoristas",
+                "localField": "motorista_id",
+                "foreignField": "_id",
+                "as": "motorista_info"
+            }},
+            {"$lookup": {
+                "from": "veiculos",
+                "localField": "veiculo_id",
+                "foreignField": "_id",
+                "as": "veiculo_info"
+            }},
+            {"$unwind": "$rota_info"},
+            {"$unwind": "$motorista_info"},
+            {"$unwind": "$veiculo_info"},
+            {"$project": {
+                "_id": 1,
+                "data_viagem": 1,
+                "status": 1,
+                "rota_nome": "$rota_info.nome_rota",
+                "motorista_nome": "$motorista_info.nome_completo",
+                "veiculo_placa": "$veiculo_info.placa",
+                "incidentes_count": {"$size": "$incidentes"}
             }}
         ]
         
-        cursor = self.db.viagens.aggregate(pipeline)
-        return await cursor.to_list(length=100)
+        return await self.db.viagens.aggregate(pipeline).to_list(length=100)
 
     async def get_estatisticas_veiculos(self) -> List[Dict[str, Any]]:
-        """F7: Consulta complexa - Estatísticas de uso dos veículos"""
+        """F10: Estatísticas de uso de veículos"""
         pipeline = [
             {"$lookup": {
-                "from": "viagens",
-                "localField": "_id",
-                "foreignField": "veiculo_id",
-                "as": "viagens"
+                "from": "veiculos",
+                "localField": "veiculo_id",
+                "foreignField": "_id",
+                "as": "veiculo_info"
             }},
-            {"$project": {
-                "placa": 1,
-                "modelo": 1,
-                "total_viagens": {"$size": "$viagens"},
-                "viagens_em_andamento": {
-                    "$size": {
-                        "$filter": {
-                            "input": "$viagens",
-                            "cond": {"$eq": ["$$this.status", "Em Andamento"]}
-                        }
-                    }
-                },
+            {"$unwind": "$veiculo_info"},
+            {"$group": {
+                "_id": "$veiculo_id",
+                "placa": {"$first": "$veiculo_info.placa"},
+                "modelo": {"$first": "$veiculo_info.modelo"},
+                "total_viagens": {"$sum": 1},
                 "viagens_concluidas": {
-                    "$size": {
-                        "$filter": {
-                            "input": "$viagens",
-                            "cond": {"$eq": ["$$this.status", "Concluída"]}
-                        }
-                    }
+                    "$sum": {"$cond": [{"$eq": ["$status", StatusViagem.CONCLUIDA]}, 1, 0]}
+                },
+                "viagens_canceladas": {
+                    "$sum": {"$cond": [{"$eq": ["$status", StatusViagem.CANCELADA]}, 1, 0]}
                 }
             }},
-            {"$sort": {"total_viagens": -1}}
+            {"$project": {
+                "_id": 1,
+                "placa": 1,
+                "modelo": 1,
+                "total_viagens": 1,
+                "viagens_concluidas": 1,
+                "viagens_canceladas": 1,
+                "taxa_conclusao": {
+                    "$cond": [
+                        {"$eq": ["$total_viagens", 0]},
+                        0,
+                        {"$divide": ["$viagens_concluidas", "$total_viagens"]}
+                    ]
+                }
+            }}
         ]
         
-        cursor = self.db.veiculos.aggregate(pipeline)
-        return await cursor.to_list(length=100)
+        return await self.db.viagens.aggregate(pipeline).to_list(length=100)
 
     # ==================== FREQUÊNCIAS ====================
     async def create_frequencia(self, frequencia: FrequenciaCreate) -> Frequencia:
         """F1: Inserir uma frequência"""
-        frequencia_dict = frequencia.dict()
+        frequencia_dict = frequencia.model_dump()
         frequencia_dict["_id"] = ObjectId()
         
         await self.db.frequencias.insert_one(frequencia_dict)
@@ -464,7 +479,7 @@ class CRUDService:
         """F2: Listar todas as frequências"""
         cursor = self.db.frequencias.find().skip(skip).limit(limit)
         frequencias = await cursor.to_list(length=limit)
-        return [Frequencia(**freq) for freq in frequencias]
+        return [Frequencia(**frequencia) for frequencia in frequencias]
 
     async def get_frequencia(self, frequencia_id: str) -> Optional[Frequencia]:
         """F3: Buscar frequência por ID"""
@@ -473,7 +488,7 @@ class CRUDService:
 
     async def update_frequencia(self, frequencia_id: str, frequencia_update: FrequenciaUpdate) -> Optional[Frequencia]:
         """F3: Atualizar frequência"""
-        update_data = {k: v for k, v in frequencia_update.dict(exclude_unset=True).items()}
+        update_data = {k: v for k, v in frequencia_update.model_dump(exclude_unset=True).items()}
         
         if update_data:
             result = await self.db.frequencias.update_one(
@@ -492,10 +507,10 @@ class CRUDService:
         """F4: Contar total de frequências"""
         return await self.db.frequencias.count_documents({})
 
-    # ==================== PAGINAÇÃO ====================
+    # ==================== PAGINAÇÃO GENÉRICA ====================
     async def get_paginated(self, collection_name: str, page: int = 0, limit: int = 10, 
                            filter_query: Optional[Dict] = None) -> PaginatedResponse:
-        """F5: Implementar paginação"""
+        """F5: Paginação genérica para qualquer coleção"""
         if filter_query is None:
             filter_query = {}
         
