@@ -1,20 +1,18 @@
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import OAuth2PasswordBearer
 from typing import Any, Optional
-import bcrypt
 from datetime import datetime, timedelta
 import jwt
 from bson import ObjectId
 
 from ..database import get_database
 from ..models.pydantic_models import LoginRequest, LoginResponse, UserInfo
+from ..core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
-security = HTTPBasic()
 
-# Chave secreta para JWT (em produção, use uma chave segura)
-SECRET_KEY = "rotafacil_secret_key_2024"
-ALGORITHM = "HS256"
+# Configuração do esquema OAuth2 para JWT
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 def get_crud_service(db: Any = Depends(get_database)):
     from ..services.crud_services import CRUDService
@@ -26,15 +24,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(hours=24)
+        expire = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_HOURS)
     
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verificar senha com bcrypt"""
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    return pwd_context.verify(plain_password, hashed_password)
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
@@ -143,14 +143,13 @@ async def register_motorista(
 
 @router.get("/me", response_model=UserInfo)
 async def get_current_user(
-    credentials: HTTPBasicCredentials = Depends(security),
+    token: str = Depends(oauth2_scheme),
     crud = Depends(get_crud_service)
 ):
     """Obter informações do usuário atual"""
     try:
         # Decodificar token JWT
-        token = credentials.password  # O token vem como senha no Basic Auth
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         
         user_id = payload.get("sub")
         user_type = payload.get("tipo")
@@ -179,7 +178,7 @@ async def get_current_user(
         
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao obter usuário: {str(e)}") 

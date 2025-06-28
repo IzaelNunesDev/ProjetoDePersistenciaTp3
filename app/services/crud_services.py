@@ -2,7 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
-import hashlib
+from passlib.context import CryptContext
 
 from ..models.pydantic_models import (
     Aluno, AlunoCreate, AlunoUpdate,
@@ -15,19 +15,22 @@ from ..models.pydantic_models import (
     StatusVeiculo, StatusViagem
 )
 
+# Configuração do contexto de senha com bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 class CRUDService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
-    # Função auxiliar para hash de senha
-    def _hash_password(self, password: str) -> str:
-        return hashlib.sha256(password.encode()).hexdigest()
+    # Função auxiliar para hash de senha usando bcrypt
+    def _get_password_hash(self, password: str) -> str:
+        return pwd_context.hash(password)
 
     # ==================== ALUNOS ====================
     async def create_aluno(self, aluno: AlunoCreate) -> Aluno:
         """F1: Inserir um aluno"""
         aluno_dict = aluno.model_dump()
-        aluno_dict["senha_hash"] = self._hash_password(aluno_dict.pop("senha"))
+        aluno_dict["senha_hash"] = self._get_password_hash(aluno_dict.pop("senha"))
         aluno_dict["_id"] = ObjectId()
         
         await self.db.alunos.insert_one(aluno_dict)
@@ -49,7 +52,7 @@ class CRUDService:
         update_data = {}
         for field, value in aluno_update.model_dump(exclude_unset=True).items():
             if field == "senha" and value:
-                update_data["senha_hash"] = self._hash_password(value)
+                update_data["senha_hash"] = self._get_password_hash(value)
             else:
                 update_data[field] = value
         
@@ -86,7 +89,7 @@ class CRUDService:
     async def create_motorista(self, motorista: MotoristaCreate) -> Motorista:
         """F1: Inserir um motorista"""
         motorista_dict = motorista.model_dump()
-        motorista_dict["senha_hash"] = self._hash_password(motorista_dict.pop("senha"))
+        motorista_dict["senha_hash"] = self._get_password_hash(motorista_dict.pop("senha"))
         motorista_dict["_id"] = ObjectId()
         
         await self.db.motoristas.insert_one(motorista_dict)
@@ -108,7 +111,7 @@ class CRUDService:
         update_data = {}
         for field, value in motorista_update.model_dump(exclude_unset=True).items():
             if field == "senha" and value:
-                update_data["senha_hash"] = self._hash_password(value)
+                update_data["senha_hash"] = self._get_password_hash(value)
             else:
                 update_data[field] = value
         

@@ -17,5 +17,10 @@ class Settings:
     PROJECT_NAME: str = "RotaFácil API"
     VERSION: str = "1.0.0"
     DESCRIPTION: str = "API RESTful para gerenciamento de transporte escolar"
+    
+    # Configurações de Segurança
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "uma_chave_padrao_apenas_para_dev_nao_usar_em_producao")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_HOURS: int = 24
 
 settings = Settings() 
