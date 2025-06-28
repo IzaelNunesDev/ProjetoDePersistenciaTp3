@@ -22,6 +22,11 @@ class CRUDService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
+    def _check_db_connection(self):
+        """Check if database is connected"""
+        if self.db is None:
+            raise Exception("Database connection not available")
+
     # Função auxiliar para hash de senha usando bcrypt
     def _get_password_hash(self, password: str) -> str:
         return pwd_context.hash(password)
@@ -249,13 +254,15 @@ class CRUDService:
                           turno: Optional[str] = None,
                           ativa: Optional[bool] = None) -> List[Rota]:
         """F6: Buscar rotas por filtros"""
+        self._check_db_connection()
+        
         filter_query = {}
         if nome:
             filter_query["nome_rota"] = {"$regex": nome, "$options": "i"}
         if descricao:
             filter_query["descricao"] = {"$regex": descricao, "$options": "i"}
         if turno:
-            filter_query["turno"] = {"$regex": turno, "$options": "i"}
+            filter_query["turno"] = turno
         if ativa is not None:
             filter_query["ativa"] = ativa
         
@@ -328,6 +335,25 @@ class CRUDService:
         
         cursor = self.db.viagens.find(filter_query)
         viagens = await cursor.to_list(length=100)
+        return [Viagem(**viagem) for viagem in viagens]
+
+    async def search_viagens_por_aluno(self, aluno_id: str) -> List[Viagem]:
+        """Buscar viagens de um aluno específico através das frequências"""
+        self._check_db_connection()
+        
+        pipeline = [
+            {"$match": {"aluno_id": ObjectId(aluno_id)}},
+            {"$lookup": {
+                "from": "viagens",
+                "localField": "viagem_id",
+                "foreignField": "_id",
+                "as": "viagem_info"
+            }},
+            {"$unwind": "$viagem_info"},
+            {"$replaceRoot": {"newRoot": "$viagem_info"}}
+        ]
+        
+        viagens = await self.db.frequencias.aggregate(pipeline).to_list(length=100)
         return [Viagem(**viagem) for viagem in viagens]
 
     async def get_viagem_detalhada(self, viagem_id: str) -> Optional[ViagemDetalhada]:

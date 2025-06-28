@@ -46,8 +46,8 @@ app.include_router(router_veiculo.router, prefix=settings.API_V1_STR)
 app.include_router(router_rota.router, prefix=settings.API_V1_STR)
 app.include_router(router_viagem.router, prefix=settings.API_V1_STR)
 
-# Rota raiz
-@app.get("/")
+# Rota raiz da API
+@app.get(settings.API_V1_STR + "/")
 async def root():
     return {
         "message": "Bem-vindo à API RotaFácil",
@@ -56,10 +56,21 @@ async def root():
         "redoc": "/redoc"
     }
 
-# Rota de health check
-@app.get("/health")
+# Rota de health check da API
+@app.get(settings.API_V1_STR + "/health")
 async def health_check():
     return {"status": "healthy", "message": "API RotaFácil está funcionando"}
+
+# Rota raiz geral (redireciona para a API)
+@app.get("/")
+async def root_redirect():
+    return {
+        "message": "Bem-vindo à API RotaFácil",
+        "version": settings.VERSION,
+        "api_url": settings.API_V1_STR,
+        "docs": "/docs",
+        "redoc": "/redoc"
+    }
 
 if __name__ == "__main__":
     import uvicorn

@@ -175,4 +175,19 @@ async def listar_viagens_por_rota(
     crud: CRUDService = Depends(get_crud_service)
 ):
     """Listar todas as viagens de uma rota específica"""
-    return await crud.search_viagens(rota_id=rota_id) 
+    return await crud.search_viagens(rota_id=rota_id)
+
+# Endpoint adicional: Viagens por aluno
+@router.get("/aluno/{aluno_id}", response_model=List[Viagem])
+async def listar_viagens_por_aluno(
+    aluno_id: str,
+    crud: CRUDService = Depends(get_crud_service)
+):
+    """Listar todas as viagens de um aluno específico"""
+    try:
+        return await crud.search_viagens_por_aluno(aluno_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Serviço temporariamente indisponível: {str(e)}"
+        ) 

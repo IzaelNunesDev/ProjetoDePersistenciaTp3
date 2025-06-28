@@ -131,7 +131,13 @@ async def listar_rotas_ativas(
     crud: CRUDService = Depends(get_crud_service)
 ):
     """Listar apenas rotas ativas"""
-    return await crud.search_rotas(ativa=True)
+    try:
+        return await crud.search_rotas(ativa=True)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Serviço temporariamente indisponível: {str(e)}"
+        )
 
 # Endpoint adicional: Rotas por turno
 @router.get("/turno/{turno}", response_model=List[Rota])
